@@ -1,8 +1,6 @@
-import pyshark
+from scapy.all import *
 
-cap = pyshark.FileCapture('/home/avc/tmp/traffic.pcap')
-print(cap)
+packets = rdpcap(sys.argv[1])
 
-print(cap[1])
-
-print(len(cap))
+for packet in packets:
+    print(packet)

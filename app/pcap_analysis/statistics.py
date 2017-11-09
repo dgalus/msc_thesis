@@ -2,5 +2,10 @@ from scapy.all import *
 
 packets = rdpcap(sys.argv[1])
 
-for packet in packets:
-    print(packet)
+ip_packets = 0
+
+for p in packets:
+    if IP in p:
+        ip_packets += 1 
+
+print("IP packets count: " + str(ip_packets))

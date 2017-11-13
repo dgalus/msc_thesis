@@ -4,3 +4,4 @@ scapy-python3
 matplotlib
 numpy
 elasticsearch
+pyyaml

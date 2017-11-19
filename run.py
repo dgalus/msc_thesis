@@ -14,3 +14,4 @@ es = Elasticsearch([{'host' : config['elasticsearch']['host'], 'port' : config['
 
 df = DataFetcher(es)
 df.insert_unsafe_urls()
+df.insert_unsafe_addresses()

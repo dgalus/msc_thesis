@@ -18,7 +18,7 @@ class DataFetcher:
                 "_index" : "unsafe",
                 "_type" : "url",
                 "_id" : i,
-                "_url" : unsafe_urls[i]
+                "url" : unsafe_urls[i]
             }            
             for i in range(0, len(unsafe_urls))
         ]
@@ -32,7 +32,7 @@ class DataFetcher:
                 "_index" : "unsafe",
                 "_type" : "ip",
                 "_id" : i,
-                "_ip" : unsafe_addresses[i]
+                "ip" : unsafe_addresses[i]
             }
             for i in range(0, len(unsafe_addresses))
         ]

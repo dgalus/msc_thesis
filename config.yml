@@ -1,6 +1,9 @@
 elasticsearch:
   host: 127.0.0.1
   port: 9200
+  unsafe_index: unsafe
+  unsafe_ip: ip
+  unsafe_url: url
 
 info:
   emails:

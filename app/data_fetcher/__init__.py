@@ -13,11 +13,27 @@ class DataFetcher:
 
     def insert_unsafe_urls(self):
         unsafe_urls = list(itertools.chain(malwaredomainlist.get_unsafe_domains(), openphish.get_unsafe_urls()))
-        for uu in unsafe_urls:
-            self.es.index(index='unsafe', doc_type='urls', body={
-                'url' : uu
-            })
+        actions = [
+            {
+                "_index" : "unsafe",
+                "_type" : "url",
+                "_id" : i,
+                "_url" : unsafe_urls[i]
+            }            
+            for i in range(0, len(unsafe_urls))
+        ]
+        bulk(self.es, actions)
         
 
     def insert_unsafe_addresses(self):
         unsafe_addresses = list(itertools.chain(malc0de.get_unsafe_addresses(), malwaredomainlist.get_unsafe_ip_addresses()))
+        actions = [
+            {
+                "_index" : "unsafe",
+                "_type" : "ip",
+                "_id" : i,
+                "_ip" : unsafe_addresses[i]
+            }
+            for i in range(0, len(unsafe_addresses))
+        ]
+        bulk(self.es, actions)

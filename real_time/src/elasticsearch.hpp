@@ -2,7 +2,9 @@
 #define ELASTICSEARCH_HPP_
 
 #include <string>
+#include <vector>
 #include <cpr/cpr.h>
+#include <tins/tins.h>
 
 class Elasticsearch {
 public:
@@ -13,6 +15,7 @@ public:
     void SetPort(uint16_t port);
     void SetUsername(std::string username);
     void SetPassword(std::string password);
+
 private:
     std::string host;
     std::string username;

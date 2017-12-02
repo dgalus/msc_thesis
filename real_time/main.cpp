@@ -1,7 +1,10 @@
 #include <iostream>
 
+#include "elasticsearch.h"
+
 int main(int argc, char **argv)
 {
-    std::cout << "Hello, world!" << std::endl;
+    Elasticsearch es{};
+	
     return 0;
 }

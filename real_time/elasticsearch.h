@@ -3,7 +3,6 @@
 
 #include <string>
 #include <vector>
-#include <cpr/cpr.h>
 #include <tins/tins.h>
 
 class Elasticsearch {

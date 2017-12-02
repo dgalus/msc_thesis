@@ -1,2 +1,2 @@
 default:
-	g++ -o real_time main.cpp -lcpr
+	g++ -o real_time main.cpp 

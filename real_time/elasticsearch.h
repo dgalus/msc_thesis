@@ -1,5 +1,5 @@
-#ifndef ELASTICSEARCH_HPP_
-#define ELASTICSEARCH_HPP_
+#ifndef ELASTICSEARCH_H_
+#define ELASTICSEARCH_H_
 
 #include <string>
 #include <vector>

@@ -4,3 +4,6 @@
 __pycache__
 *.dat
 tmp/
+*.o
+**build
+**bin

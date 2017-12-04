@@ -60,4 +60,9 @@ JsonResponse Elasticsearch::search(std::string index, std::string document_type,
 	return r;
 }
 
+JsonResponse Elasticsearch::bulk(std::string&& body)
+{
+	return NULL;
+}
+
 

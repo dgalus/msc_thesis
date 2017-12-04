@@ -19,6 +19,7 @@ public:
     void SetUsername(std::string username);
     void SetPassword(std::string password);
 	JsonResponse search(std::string index, std::string document_type, std::string&& body);
+	JsonResponse bulk(std::string&& body);
 
 private:
     std::string host;

@@ -1,7 +1,8 @@
-sudo apt install libcurl4-openssl-dev python3-pip cmake libboost-all-dev libtins-dev
+sudo apt install libcurl4-openssl-dev python3-pip cmake libtins-dev
 
 sudo pip3 install requests flask 
 
 
 Build:
 https://github.com/whoshuu/cpr
+https://github.com/Tencent/rapidjson

@@ -44,5 +44,20 @@ void Elasticsearch::SetUsername(std::string username)
 	this->username = username;
 }
 
+JsonResponse Elasticsearch::search(std::string index, std::string document_type, std::string&& body)
+{
+	std::string m_url = "http://" + this->host + ":" + std::to_string(this->port);
+    cpr::Url url;
+    if (index.empty() && document_type.empty()) {
+        url = cpr::Url{m_url + "/_search"};
+    } else if (document_type.empty()) {
+        url = cpr::Url{m_url + "/" + index + "/_search"};
+    } else {
+        url = cpr::Url{m_url + "/" + index + "/" + document_type + "/_search"};
+    }
+    cpr::Response request = cpr::Get(url, cpr::Body{body}, cpr::Header{{"Content-type", "application/json"}});
+	JsonResponse r(request.status_code, request.text);
+	return r;
+}
 
 

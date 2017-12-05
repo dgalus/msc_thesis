@@ -8,6 +8,7 @@
 
 #include "json_response.h"
 #include "../cpr/cpr.h"
+#include "BulkBody.h"
 
 class Elasticsearch {
 public:

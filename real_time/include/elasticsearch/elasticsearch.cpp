@@ -62,7 +62,11 @@ JsonResponse Elasticsearch::search(std::string index, std::string document_type,
 
 JsonResponse Elasticsearch::bulk(std::string&& body)
 {
-	return NULL;
+    std::string m_url = "http://" + this->host + ":" + std::to_string(this->port);
+    cpr::Url url = cpr::Url{m_url + "/_bulk"};
+    cpr::Response request = cpr::Get(url, cpr::Body{body}, cpr::Header{{"Content-type", "application/x-ndjson"}});
+    JsonResponse r(request.status_code, request.text);
+    return r;
 }
 
 

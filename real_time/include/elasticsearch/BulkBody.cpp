@@ -9,6 +9,7 @@ BulkBody::BulkBody()
 BulkBody& BulkBody::Add(BulkOperation &bulkOperation, std::string &&jsonBody, std::string&& jsonSource) {
     std::replace(jsonBody.begin(), jsonBody.end(), '\n', ' ');
     rapidjson::Document d;
+    rapidjson::Document s;
     d.Parse(jsonBody.c_str());
     if(!jsonSource.empty())
         std::replace(jsonSource.begin(), jsonSource.end(), '\n', ' ');
@@ -37,6 +38,15 @@ BulkBody& BulkBody::Add(BulkOperation &bulkOperation, std::string &&jsonBody, st
                 throw BulkException("Create operation needs at least _index and _type.");
             break;
         case BulkOperation::Update:
+            if(jsonSource.empty())
+                throw BulkException("Update operation needs source.");
+            s.Parse(jsonSource.c_str());
+            if(d.HasMember("_index") && d.HasMember("_type") && d.HasMember("_id") &&
+                    (s.HasMember("script") || s.HasMember("doc") || s.HasMember("upsert")
+                    || s.HasMember("doc_as_upsert") || s.HasMember("_source")))
+                this->bulkString += "{ \"update\" : " + jsonBody + " }\n" + jsonSource + "\n";
+            else
+                throw BulkException("Update operation needs _index, _type and _id. Source needs one of (script, doc, upsert, doc_as_upsert, _source).");
             break;
         default:
             break;

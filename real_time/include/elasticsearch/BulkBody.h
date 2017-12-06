@@ -5,6 +5,10 @@
 #include <exception>
 #include <string>
 #include <vector>
+#include <iostream>
+
+#include "../rapidjson/stringbuffer.h"
+#include "../rapidjson/writer.h"
 
 enum class BulkOperation {
     Index,
@@ -36,8 +40,8 @@ protected:
 class BulkBody {
 public:
     BulkBody();
-    BulkBody& Add(BulkOperation& bulkOperation, std::string&& jsonBody, std::string&& jsonSource);
-    std::string& Get();
+    BulkBody& Add(BulkOperation bulkOperation, std::string&& jsonBody, std::string jsonSource);
+    std::string Get();
 private:
     std::string bulkString;
 };

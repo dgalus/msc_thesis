@@ -64,7 +64,7 @@ JsonResponse Elasticsearch::bulk(std::string&& body)
 {
     std::string m_url = "http://" + this->host + ":" + std::to_string(this->port);
     cpr::Url url = cpr::Url{m_url + "/_bulk"};
-    cpr::Response request = cpr::Get(url, cpr::Body{body}, cpr::Header{{"Content-type", "application/x-ndjson"}});
+    cpr::Response request = cpr::Post(url, cpr::Body{body}, cpr::Header{{"Content-type", "application/x-ndjson"}});
     JsonResponse r(request.status_code, request.text);
     return r;
 }

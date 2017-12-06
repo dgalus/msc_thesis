@@ -6,7 +6,7 @@ BulkBody::BulkBody()
     this->bulkString = "";
 }
 
-BulkBody& BulkBody::Add(BulkOperation &bulkOperation, std::string &&jsonBody, std::string&& jsonSource) {
+BulkBody& BulkBody::Add(BulkOperation bulkOperation, std::string &&jsonBody, std::string jsonSource) {
     std::replace(jsonBody.begin(), jsonBody.end(), '\n', ' ');
     rapidjson::Document d;
     rapidjson::Document s;
@@ -54,7 +54,7 @@ BulkBody& BulkBody::Add(BulkOperation &bulkOperation, std::string &&jsonBody, st
     return *this;
 }
 
-std::string& BulkBody::Get() {
+std::string BulkBody::Get() {
 
     return this->bulkString;
 }

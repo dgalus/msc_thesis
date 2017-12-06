@@ -8,3 +8,5 @@ tmp/
 **build
 **bin
 **.kdev4
+**.idea/
+**cmake-build-debug

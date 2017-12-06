@@ -36,7 +36,7 @@ protected:
 class BulkBody {
 public:
     BulkBody();
-    BulkBody& Add(BulkOperation& bulkOperation, std::string&& jsonBody, std::string&& source);
+    BulkBody& Add(BulkOperation& bulkOperation, std::string&& jsonBody, std::string&& jsonSource);
     std::string& Get();
 private:
     std::string bulkString;

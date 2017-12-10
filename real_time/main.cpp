@@ -15,26 +15,28 @@ void save()
 {
 	BulkBody bb;
 	std::lock_guard<std::mutex> lock(m);
-	rapidjson::Document d;
-	d.SetObject();
-	rapidjson::Value root(rapidjson::kObjectType);
-	rapidjson::Document::AllocatorType& a = d.GetAllocator();
 
 	for(auto p : vt)
 	{
 		if(p.pdu()->find_pdu<Tins::EthernetII>())
 		{
-			d.AddMember(rapidjson::StringRef("dst_addr"),
-				rapidjson::StringRef(p.pdu()->rfind_pdu<Tins::EthernetII>().dst_addr().to_string().c_str()),
+			rapidjson::Document d;
+			d.SetObject();
+			rapidjson::Value ethernet(rapidjson::kObjectType);
+			std::string dst_addr = p.pdu()->rfind_pdu<Tins::EthernetII>().dst_addr().to_string();
+			std::string src_addr = p.pdu()->rfind_pdu<Tins::EthernetII>().src_addr().to_string();
+			ethernet.AddMember(rapidjson::StringRef("dst_addr"),
+				rapidjson::StringRef(dst_addr.c_str()),
 				d.GetAllocator());
-			d.AddMember(rapidjson::StringRef("src_addr"),
-				rapidjson::StringRef(p.pdu()->rfind_pdu<Tins::EthernetII>().src_addr().to_string().c_str()),
+			ethernet.AddMember(rapidjson::StringRef("src_addr"),
+				rapidjson::StringRef(src_addr.c_str()),
 				d.GetAllocator());
-
+			d.AddMember(rapidjson::StringRef("ethernet"), ethernet, d.GetAllocator());
+			
 			// DEBUG
 			std::cout << "In debug" <<std::endl;
 			rapidjson::StringBuffer buffer;
-			rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+			rapidjson::Writer<rapidjson::StringBuffer, rapidjson::Document::EncodingType, rapidjson::ASCII<>> writer(buffer);
 			d.Accept(writer);
 			std::cout << buffer.GetString() << std::endl;
 
@@ -82,7 +84,7 @@ void save()
 				   "{ \"src\" : \"" + p.pdu()->rfind_pdu<Tins::IP>().src_addr().to_string() + "\" }");
 		}
 	}
-	std::cout << es.bulk(bb.Get()).GetRawData();
+	//std::cout << es.bulk(bb.Get()).GetRawData();
 	vt.clear();
 }
 
@@ -99,7 +101,7 @@ bool doo(Tins::Packet& packet)
 int main(int argc, char **argv)
 {
 
-	Tins::Sniffer sniffer("wlan0");
+	Tins::Sniffer sniffer("eno1");
 	sniffer.sniff_loop(doo);
 	
 	//JsonResponse jr = es.search("unsafe", "url", "");

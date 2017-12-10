@@ -36,42 +36,57 @@ void save()
 			src_addr_val.SetString(src_addr.c_str(), src_addr.length(), allocator);
 			ethernet.AddMember("src_addr", src_addr_val, allocator);
 			
-			d.AddMember(rapidjson::StringRef("ethernet"), ethernet, allocator);
+			d.AddMember("ethernet", ethernet, allocator);
 
-			/*if(p.pdu()->find_pdu<Tins::IP>())
+			if(p.pdu()->find_pdu<Tins::IP>())
 			{
 				rapidjson::Value ip(rapidjson::kObjectType);
 				
 				int version = p.pdu()->rfind_pdu<Tins::IP>().version();
-				ip.AddMember(rapidjson::StringRef("version"), version, allocator);
+				rapidjson::Value version_val;
+				version_val.SetInt(version);
+				ip.AddMember("version", version_val, allocator);
 				
 				int tot_len = p.pdu()->rfind_pdu<Tins::IP>().tot_len();
-				ip.AddMember(rapidjson::StringRef("tot_len"), tot_len, allocator);
+				rapidjson::Value tot_len_val;
+				tot_len_val.SetInt(tot_len);
+				ip.AddMember("tot_len", tot_len_val, allocator);
 				
 				Tins::IP::Flags flags = p.pdu()->rfind_pdu<Tins::IP>().flags();
+				rapidjson::Value flags_val;
 				if(flags == Tins::IP::Flags::FLAG_RESERVED)
-					ip.AddMember(rapidjson::StringRef("flags"), rapidjson::StringRef("reserved"), allocator);
+					flags_val.SetString("reserved");
 				else if(flags == Tins::IP::Flags::DONT_FRAGMENT)
-					ip.AddMember(rapidjson::StringRef("flags"), rapidjson::StringRef("dont_fragment"), allocator);
+					flags_val.SetString("dont_fragment");
 				else if(flags == Tins::IP::Flags::MORE_FRAGMENTS)
-					ip.AddMember(rapidjson::StringRef("flags"), rapidjson::StringRef("more_fragments"), allocator);
+					flags_val.SetString("more_fragments");
 				else
-					ip.AddMember(rapidjson::StringRef("flags"), rapidjson::StringRef(""), allocator);
+					flags_val.SetString("");
+				ip.AddMember("flags", flags_val, allocator);
 				
 				int ttl = p.pdu()->rfind_pdu<Tins::IP>().ttl();
-				ip.AddMember(rapidjson::StringRef("ttl"), ttl, allocator);
+				rapidjson::Value ttl_val;
+				ttl_val.SetInt(ttl);
+				ip.AddMember("ttl", ttl_val, allocator);
 				
 				int protocol = p.pdu()->rfind_pdu<Tins::IP>().protocol();
-				ip.AddMember(rapidjson::StringRef("protocol"), protocol, allocator);
+				rapidjson::Value protocol_val;
+				protocol_val.SetInt(protocol);
+				ip.AddMember("protocol", protocol_val, allocator);
+				
+				std::string dst_addr = p.pdu()->rfind_pdu<Tins::IP>().dst_addr().to_string();
+				rapidjson::Value dst_addr_val;
+				dst_addr_val.SetString(dst_addr.c_str(), dst_addr.length(), allocator);
+				ip.AddMember("dst_addr", dst_addr_val, allocator);
 				
 				std::string src_addr = p.pdu()->rfind_pdu<Tins::IP>().src_addr().to_string();
-				std::string dst_addr = p.pdu()->rfind_pdu<Tins::IP>().dst_addr().to_string();
-				ip.AddMember(rapidjson::StringRef("dst_addr"), rapidjson::StringRef(dst_addr.c_str()), allocator);
-				ip.AddMember(rapidjson::StringRef("src_addr"), rapidjson::StringRef(src_addr.c_str()), allocator);
+				rapidjson::Value src_addr_val;
+				src_addr_val.SetString(src_addr.c_str(), src_addr.length(), allocator);
+				ip.AddMember("src_addr", src_addr_val, allocator);
 				
-				d.AddMember(rapidjson::StringRef("ip"), ip, allocator);
+				d.AddMember("ip", ip, allocator);
 
-				if(p.pdu()->find_pdu<Tins::TCP>())
+				/*if(p.pdu()->find_pdu<Tins::TCP>())
 				{
 					// TCP
 					p.pdu()->rfind_pdu<Tins::TCP>().sport();
@@ -84,17 +99,15 @@ void save()
 				{
 					// UDP
 				}
+				else if(p.pdu()->find_pdu<Tins::ICMP>())
+				{
+
+				}
 				else
-				{ }
+				{ }*/
 			}
-			else if(p.pdu()->find_pdu<Tins::ICMP>())
-			{
-
-			}
-			else
-			{ }*/
-
 			// SIZE
+			// TIMESTAMP
 		}
 		
 		// DEBUG

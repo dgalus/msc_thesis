@@ -15,35 +15,51 @@ void save()
 {
 	BulkBody bb;
 	std::lock_guard<std::mutex> lock(m);
-
+	rapidjson::Document d;
+	d.SetObject();
+	rapidjson::Value root(rapidjson::kObjectType);
+	rapidjson::Document::AllocatorType& a = d.GetAllocator();
 
 	for(auto p : vt)
 	{
 		if(p.pdu()->find_pdu<Tins::EthernetII>())
 		{
-			p.pdu()->rfind_pdu<Tins::EthernetII>().dst_addr().to_string();
-			p.pdu()->rfind_pdu<Tins::EthernetII>().src_addr().to_string();
+			d.AddMember(rapidjson::StringRef("dst_addr"),
+				rapidjson::StringRef(p.pdu()->rfind_pdu<Tins::EthernetII>().dst_addr().to_string().c_str()),
+				d.GetAllocator());
+			d.AddMember(rapidjson::StringRef("src_addr"),
+				rapidjson::StringRef(p.pdu()->rfind_pdu<Tins::EthernetII>().src_addr().to_string().c_str()),
+				d.GetAllocator());
+
+			// DEBUG
+			std::cout << "In debug" <<std::endl;
+			rapidjson::StringBuffer buffer;
+			rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+			d.Accept(writer);
+			std::cout << buffer.GetString() << std::endl;
+
+
 
 			// ETH
 			if(p.pdu()->find_pdu<Tins::IP>())
 			{
 				// IP
-				p.pdu()->rfind_pdu<Tins::IP>().version();
+				/*p.pdu()->rfind_pdu<Tins::IP>().version();
 				p.pdu()->rfind_pdu<Tins::IP>().tot_len();
 				p.pdu()->rfind_pdu<Tins::IP>().flags();
 				p.pdu()->rfind_pdu<Tins::IP>().ttl();
 				p.pdu()->rfind_pdu<Tins::IP>().protocol();
 				p.pdu()->rfind_pdu<Tins::IP>().src_addr();
-				p.pdu()->rfind_pdu<Tins::IP>().dst_addr();
+				p.pdu()->rfind_pdu<Tins::IP>().dst_addr();*/
 
 				if(p.pdu()->find_pdu<Tins::TCP>())
 				{
 					// TCP
-					p.pdu()->rfind_pdu<Tins::TCP>().sport();
+					/*p.pdu()->rfind_pdu<Tins::TCP>().sport();
 					p.pdu()->rfind_pdu<Tins::TCP>().dport();
 					p.pdu()->rfind_pdu<Tins::TCP>().seq();
 					p.pdu()->rfind_pdu<Tins::TCP>().ack_seq();
-					p.pdu()->rfind_pdu<Tins::TCP>().flags();
+					p.pdu()->rfind_pdu<Tins::TCP>().flags();*/
 				}
 				else if(p.pdu()->find_pdu<Tins::UDP>())
 				{
@@ -73,7 +89,7 @@ void save()
 bool doo(Tins::Packet& packet)
 {
 	vt.push_back(packet);
-	if(vt.size() == 100)
+	if(vt.size() == 10)
 	{
 		save();
 	}
@@ -83,7 +99,7 @@ bool doo(Tins::Packet& packet)
 int main(int argc, char **argv)
 {
 
-	Tins::Sniffer sniffer("eth0");
+	Tins::Sniffer sniffer("wlan0");
 	sniffer.sniff_loop(doo);
 	
 	//JsonResponse jr = es.search("unsafe", "url", "");

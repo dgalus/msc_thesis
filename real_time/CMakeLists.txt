@@ -3,6 +3,8 @@ project(real_time)
 set(CURL_LIBRARY "-lcurl")
 set(CMAKE_CXX_STANDARD 11)
 
+find_library(TINS_LIBRARY tins)
+
 set(SOURCE_FILES
         include/cpr/api.h
         include/cpr/auth.cpp
@@ -84,11 +86,13 @@ set(SOURCE_FILES
         main.cpp
         Makefile
         sniffer.cpp
-        sniffer.h include/elasticsearch/BulkBody.cpp include/elasticsearch/BulkBody.h)
+        sniffer.h
+        include/elasticsearch/BulkBody.cpp
+        include/elasticsearch/BulkBody.h)
 
 set(CURL_LIBRARY "-lcurl")
 find_package(CURL REQUIRED)
 add_executable(real_time ${SOURCE_FILES})
 include_directories(${CURL_INCLUDE_DIR})
-target_link_libraries(real_time ${CURL_LIBRARIES})
+target_link_libraries(real_time ${CURL_LIBRARIES} ${TINS_LIBRARY})
 

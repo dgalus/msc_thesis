@@ -1,2 +1,2 @@
 default:
-	g++ -o bin/out -I . -I ./include/elasticsearch -I ./include/rapidjson -I ./include/cpr *.cpp ./include/elasticsearch/*.cpp ./include/cpr/*.cpp -lcurl -std=c++11 -Wall -ltins -lpthread
+	g++ -Wall -o bin/sniffer -I . -I ./include/elasticsearch -I ./include/rapidjson -I ./include/cpr ./include/elasticsearch/*.cpp ./include/cpr/*.cpp src/sniffer.cpp -lcurl -ltins -lpthread -std=c++11 

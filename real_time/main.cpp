@@ -3,6 +3,7 @@
 #include <vector>
 #include <thread>
 #include <tins/tins.h>
+#include <time.h>
 
 #include "include/elasticsearch/elasticsearch.h"
 
@@ -10,6 +11,16 @@
 std::vector<Tins::Packet> vt;
 Elasticsearch es{};
 std::mutex m;
+
+std::string getCurrentDateTime()
+{
+	time_t     now = time(0);
+    struct tm  tstruct;
+    char       buf[80];
+    tstruct = *localtime(&now);
+    strftime(buf, sizeof(buf), "%Y-%m-%d.%X", &tstruct);
+    return std::string(buf);
+}
 
 void save()
 {
@@ -86,48 +97,132 @@ void save()
 				
 				d.AddMember("ip", ip, allocator);
 
-				/*if(p.pdu()->find_pdu<Tins::TCP>())
+				if(p.pdu()->find_pdu<Tins::TCP>())
 				{
-					// TCP
-					p.pdu()->rfind_pdu<Tins::TCP>().sport();
-					p.pdu()->rfind_pdu<Tins::TCP>().dport();
-					p.pdu()->rfind_pdu<Tins::TCP>().seq();
-					p.pdu()->rfind_pdu<Tins::TCP>().ack_seq();
-					p.pdu()->rfind_pdu<Tins::TCP>().flags();
+					rapidjson::Value tcp(rapidjson::kObjectType);
+
+					int sport = p.pdu()->rfind_pdu<Tins::TCP>().sport();
+					rapidjson::Value sport_val;
+					sport_val.SetInt(sport);
+					tcp.AddMember("sport", sport_val, allocator);
+					
+					int dport = p.pdu()->rfind_pdu<Tins::TCP>().dport();
+					rapidjson::Value dport_val;
+					dport_val.SetInt(dport);
+					tcp.AddMember("dport", dport_val, allocator);
+					
+					unsigned int seq = p.pdu()->rfind_pdu<Tins::TCP>().seq();
+					rapidjson::Value seq_val;
+					seq_val.SetUint(seq);
+					tcp.AddMember("seq", seq_val, allocator);
+					
+					unsigned int seq_ack = p.pdu()->rfind_pdu<Tins::TCP>().ack_seq();
+					rapidjson::Value seq_ack_val;
+					seq_ack_val.SetUint(seq_ack);
+					tcp.AddMember("seq_ack", seq_ack_val, allocator);
+					
+					int flags = p.pdu()->rfind_pdu<Tins::TCP>().flags();
+					rapidjson::Value flags_val;
+					flags_val.SetInt(flags);
+					tcp.AddMember("flags", flags_val, allocator);
+					
+					d.AddMember("tcp", tcp, allocator);
 				}
 				else if(p.pdu()->find_pdu<Tins::UDP>())
 				{
-					// UDP
+					rapidjson::Value udp(rapidjson::kObjectType);
+					
+					int dport = p.pdu()->rfind_pdu<Tins::UDP>().dport();
+					rapidjson::Value dport_val;
+					dport_val.SetInt(dport);
+					udp.AddMember("dport", dport_val, allocator);
+					
+					int sport = p.pdu()->rfind_pdu<Tins::UDP>().sport();
+					rapidjson::Value sport_val;
+					sport_val.SetInt(sport);
+					udp.AddMember("sport", sport_val, allocator);
+					
+					d.AddMember("udp", udp, allocator);
 				}
 				else if(p.pdu()->find_pdu<Tins::ICMP>())
 				{
-
+					rapidjson::Value icmp(rapidjson::kObjectType);
+					
+					Tins::ICMP::Flags flags = p.pdu()->rfind_pdu<Tins::ICMP>().type();
+					rapidjson::Value flags_val;
+					if(flags == Tins::ICMP::Flags::ADDRESS_MASK_REPLY)
+						flags_val.SetString("address_mask_reply");
+					else if(flags == Tins::ICMP::Flags::ADDRESS_MASK_REQUEST)
+						flags_val.SetString("address_mask_request");
+					else if(flags == Tins::ICMP::Flags::DEST_UNREACHABLE)
+						flags_val.SetString("dest_unreachable");
+					else if(flags == Tins::ICMP::Flags::ECHO_REPLY)
+						flags_val.SetString("echo_reply");
+					else if(flags == Tins::ICMP::Flags::ECHO_REQUEST)
+						flags_val.SetString("echo_request");
+					else if(flags == Tins::ICMP::Flags::INFO_REPLY)
+						flags_val.SetString("info_reply");
+					else if(flags == Tins::ICMP::Flags::INFO_REQUEST)
+						flags_val.SetString("echo_request");
+					else if(flags == Tins::ICMP::Flags::PARAM_PROBLEM)
+						flags_val.SetString("param_problem");
+					else if(flags == Tins::ICMP::Flags::REDIRECT)
+						flags_val.SetString("redirect");
+					else if(flags == Tins::ICMP::Flags::SOURCE_QUENCH)
+						flags_val.SetString("source_quench");
+					else if(flags == Tins::ICMP::Flags::TIME_EXCEEDED)
+						flags_val.SetString("time_exceeded");
+					else if(flags == Tins::ICMP::Flags::TIMESTAMP_REPLY)
+						flags_val.SetString("timestamp_reply");
+					else if(flags == Tins::ICMP::Flags::TIMESTAMP_REQUEST)
+						flags_val.SetString("timestamp_request");
+					else
+						flags_val.SetString("");
+					icmp.AddMember("flags", flags_val, allocator);
+					
+					int code = p.pdu()->rfind_pdu<Tins::ICMP>().code();
+					rapidjson::Value code_val;
+					code_val.SetInt(code);
+					icmp.AddMember("code", code_val, allocator);
+					
+					int sequence = p.pdu()->rfind_pdu<Tins::ICMP>().sequence();
+					rapidjson::Value sequence_val;
+					sequence_val.SetInt(sequence);
+					icmp.AddMember("sequence", sequence_val, allocator);
+					
+					d.AddMember("icmp", icmp, allocator);
 				}
 				else
-				{ }*/
+				{ }
 			}
-			// SIZE
+			int size = p.pdu()->size();
+			rapidjson::Value size_val;
+			size_val.SetInt(size);
+			d.AddMember("size", size_val, allocator);
+			
 			// TIMESTAMP
+			std::string datetime = getCurrentDateTime();
+			rapidjson::Value datetime_val;
+			datetime_val.SetString(datetime.c_str(), datetime.length(), allocator);
+			d.AddMember("datetime", datetime_val, allocator);
 		}
 		
 		// DEBUG
 		rapidjson::StringBuffer buffer;
 		rapidjson::Writer<rapidjson::StringBuffer, rapidjson::Document::EncodingType, rapidjson::UTF8<>> writer(buffer);
 		d.Accept(writer);
-		std::cout << buffer.GetString() << std::endl;
+		//std::cout << buffer.GetString() << std::endl;
 		
-		
-
-		// bb.Add(BulkOperation::Index, "{ \"_index\" : \"test\", \"_type\" : \"ip\" }", "{ \"src\" : \"" + p.pdu()->rfind_pdu<Tins::IP>().src_addr().to_string() + "\" }");
+		bb.Add(BulkOperation::Index, "{ \"_index\" : \"sniffer\", \"_type\" : \"frame\"}", buffer.GetString());
 	}
-	//std::cout << es.bulk(bb.Get()).GetRawData();
+	std::cout << es.bulk(bb.Get()).GetRawData();
 	vt.clear();
 }
 
 bool doo(Tins::Packet& packet)
 {
 	vt.push_back(packet);
-	if(vt.size() == 10)
+	if(vt.size() == 200)
 	{
 		save();
 	}
@@ -147,12 +242,6 @@ int main(int argc, char **argv)
 	//rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
 	//jr.GetJsonData().Accept(writer);
 	//std::cout << buffer.GetString() << std::endl;
-
-	/*BulkBody bb;
-	for(int i = 0; i < 100; i++)
-	{
-		bb.Add(BulkOperation::Index, "{ \"_index\" : \"test\", \"_type\" : \"seq\" }", "{ \"title\" : \"" + std::to_string(i) + "\" }");
-	}*/
 
     return 0;
 }

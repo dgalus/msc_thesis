@@ -142,6 +142,22 @@ void save()
 					sport_val.SetInt(sport);
 					udp.AddMember("sport", sport_val, allocator);
 					
+					if(p.pdu()->find_pdu<Tins::DHCP>())
+					{
+						std::vector<Tins::IPv4Address> dns_tins = p.pdu()->rfind_pdu<Tins::DHCP>().domain_name_servers(); 
+						std::vector<std::string> dns;
+						rapidjson::Value dns_val(rapidjson::kArrayType);
+						for(auto d : dns_tins)
+						{
+							dns_val.PushBack(d.to_string().c_str(), d.to_string().length(), allocator);
+							dns.push_back(d.to_string());
+						}
+
+						p.pdu()->rfind_pdu<Tins::DHCP>().subnet_mask();
+						p.pdu()->rfind_pdu<Tins::DHCP>().routers(); //vector
+						p.pdu()->rfind_pdu<Tins::DHCP>().requested_ip();
+					}
+
 					d.AddMember("udp", udp, allocator);
 				}
 				else if(p.pdu()->find_pdu<Tins::ICMP>())

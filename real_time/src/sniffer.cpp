@@ -206,6 +206,38 @@ void save()
 			datetime_val.SetString(datetime.c_str(), datetime.length(), allocator);
 			d.AddMember("datetime", datetime_val, allocator);
 		}
+
+		if(p.pdu()->find_pdu<Tins::ARP>())
+		{
+			rapidjson::Value arp(rapidjson::kObjectType);
+
+			std::string sender_hw_addr = p.pdu()->rfind_pdu<Tins::ARP>().sender_hw_addr().to_string();
+			rapidjson::Value sender_hw_addr_val;
+			sender_hw_addr_val.SetString(sender_hw_addr.c_str(), sender_hw_addr.length(), allocator);
+			arp.AddMember("sender_hw_addr", sender_hw_addr_val, allocator);
+
+			std::string target_hw_addr = p.pdu()->rfind_pdu<Tins::ARP>().target_hw_addr().to_string();
+			rapidjson::Value target_hw_addr_val;
+			target_hw_addr_val.SetString(target_hw_addr.c_str(), target_hw_addr.length(), allocator);
+			arp.AddMember("target_hw_addr", target_hw_addr_val, allocator);
+
+			std::string sender_ip_addr = p.pdu()->rfind_pdu<Tins::ARP>().sender_ip_addr().to_string();
+			rapidjson::Value sender_ip_addr_val;
+			sender_ip_addr_val.SetString(sender_ip_addr.c_str(), sender_ip_addr.length(), allocator);
+			arp.AddMember("sender_ip_addr", sender_ip_addr_val, allocator);
+
+			std::string target_ip_addr = p.pdu()->rfind_pdu<Tins::ARP>().target_ip_addr().to_string();
+			rapidjson::Value target_ip_addr_val;
+			target_ip_addr_val.SetString(target_ip_addr.c_str(), target_ip_addr.length(), allocator);
+			arp.AddMember("target_ip_addr", target_ip_addr_val, allocator);
+
+			d.AddMember("arp", arp, allocator);
+
+			std::string datetime = getCurrentDateTime();
+			rapidjson::Value datetime_val;
+			datetime_val.SetString(datetime.c_str(), datetime.length(), allocator);
+			d.AddMember("datetime", datetime_val, allocator);
+		}
 		
 		// DEBUG
 		rapidjson::StringBuffer buffer;

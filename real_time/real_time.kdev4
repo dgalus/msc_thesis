@@ -1,3 +1,4 @@
 [Project]
-Manager=KDevCustomMakeManager
+CreatedFrom=
+Manager=KDevCustomBuildSystem
 Name=real_time

@@ -144,18 +144,43 @@ void save()
 					
 					if(p.pdu()->find_pdu<Tins::DHCP>())
 					{
+						rapidjson::Value dhcp(rapidjson::kObjectType);
+
 						std::vector<Tins::IPv4Address> dns_tins = p.pdu()->rfind_pdu<Tins::DHCP>().domain_name_servers(); 
-						std::vector<std::string> dns;
 						rapidjson::Value dns_val(rapidjson::kArrayType);
 						for(auto d : dns_tins)
 						{
-							dns_val.PushBack(d.to_string().c_str(), d.to_string().length(), allocator);
-							dns.push_back(d.to_string());
+							dns_val.PushBack(
+								rapidjson::Value{}.SetString(
+									d.to_string().c_str(), d.to_string().length(), allocator), 
+								allocator
+							);
 						}
+						dhcp.AddMember("dns", dns_val, allocator);
 
-						p.pdu()->rfind_pdu<Tins::DHCP>().subnet_mask();
-						p.pdu()->rfind_pdu<Tins::DHCP>().routers(); //vector
-						p.pdu()->rfind_pdu<Tins::DHCP>().requested_ip();
+						std::vector<Tins::IPv4Address> routers = p.pdu()->rfind_pdu<Tins::DHCP>().routers();
+						rapidjson::Value routers_val(rapidjson::kArrayType);
+						for(auto r : routers)
+						{
+							routers_val.PushBack(
+								rapidjson::Value{}.SetString(
+									r.to_string().c_str(), r.to_string().length(), allocator),
+								allocator
+							);
+						}
+						dhcp.AddMember("routers", routers_val, allocator);
+
+						std::string ip = p.pdu()->rfind_pdu<Tins::DHCP>().requested_ip().to_string();
+						rapidjson::Value ip_val;
+						ip_val.SetString(ip.c_str(), ip.length(), allocator);
+						dhcp.AddMember("ip", ip_val, allocator);
+
+						std::string mask = p.pdu()->rfind_pdu<Tins::DHCP>().subnet_mask().to_string();
+						rapidjson::Value mask_val;
+						mask_val.SetString(mask.c_str(), mask.length(), allocator);
+						dhcp.AddMember("mask", mask_val, allocator);
+
+						d.AddMember("dhcp", dhcp, allocator);
 					}
 
 					d.AddMember("udp", udp, allocator);

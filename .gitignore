@@ -3,7 +3,6 @@
 *.__pycache__
 __pycache__
 *.dat
-tmp/
 *.o
 **build
 **bin

@@ -13,19 +13,99 @@
 #include <netinet/ether.h>
 #include <unistd.h>
 
-#define ARP_REQUEST 1   /* ARP Request             */ 
-#define ARP_REPLY 2     /* ARP Reply               */ 
+#include "cjson.h"
+
+#define ARP_REQUEST 1
+#define ARP_REPLY 2
+
 struct arphdr_t{ 
-    uint16_t htype;    /* Hardware Type           */ 
-    uint16_t ptype;    /* Protocol Type           */ 
-    u_char hlen;        /* Hardware Address Length */ 
-    u_char plen;        /* Protocol Address Length */ 
-    uint16_t oper;     /* Operation Code          */ 
-    u_char sha[6];      /* Sender hardware address */ 
-    u_char spa[4];      /* Sender IP address       */ 
-    u_char tha[6];      /* Target hardware address */ 
-    u_char tpa[4];      /* Target IP address       */ 
+    uint16_t htype;
+    uint16_t ptype;
+    u_char hlen;
+    u_char plen;
+    uint16_t oper;
+    u_char sha[6];
+    u_char spa[4];
+    u_char tha[6];
+    u_char tpa[4]; 
 }; 
+
+
+
+
+static int print_preallocated(cJSON *root)
+{
+    /* declarations */
+    char *out = NULL;
+    char *buf = NULL;
+    char *buf_fail = NULL;
+    size_t len = 0;
+    size_t len_fail = 0;
+
+    /* formatted print */
+    out = cJSON_Print(root);
+
+    /* create buffer to succeed */
+    /* the extra 5 bytes are because of inaccuracies when reserving memory */
+    len = strlen(out) + 5;
+    buf = (char*)malloc(len);
+    if (buf == NULL)
+    {
+        printf("Failed to allocate memory.\n");
+        exit(1);
+    }
+
+    /* create buffer to fail */
+    len_fail = strlen(out);
+    buf_fail = (char*)malloc(len_fail);
+    if (buf_fail == NULL)
+    {
+        printf("Failed to allocate memory.\n");
+        exit(1);
+    }
+
+    /* Print to buffer */
+    if (!cJSON_PrintPreallocated(root, buf, (int)len, 1)) {
+        printf("cJSON_PrintPreallocated failed!\n");
+        if (strcmp(out, buf) != 0) {
+            printf("cJSON_PrintPreallocated not the same as cJSON_Print!\n");
+            printf("cJSON_Print result:\n%s\n", out);
+            printf("cJSON_PrintPreallocated result:\n%s\n", buf);
+        }
+        free(out);
+        free(buf_fail);
+        free(buf);
+        return -1;
+    }
+
+    /* success */
+    printf("%s\n", buf);
+
+    /* force it to fail */
+    if (cJSON_PrintPreallocated(root, buf_fail, (int)len_fail, 1)) {
+        printf("cJSON_PrintPreallocated failed to show error with insufficient memory!\n");
+        printf("cJSON_Print result:\n%s\n", out);
+        printf("cJSON_PrintPreallocated result:\n%s\n", buf_fail);
+        free(out);
+        free(buf_fail);
+        free(buf);
+        return -1;
+    }
+
+    free(out);
+    free(buf_fail);
+    free(buf);
+    return 0;
+}
+
+
+
+
+
+
+
+
+
 
 int main(){
 	int sock_r;
@@ -53,11 +133,20 @@ int main(){
 			printf("error in recvfrom");
 			return -1;
 		}
-		
+		cJSON *root = cJSON_CreateObject();
+		char source_addr[18];
+		char destination_addr[18];
 		struct ethhdr *eth = (struct ethhdr *)(buffer);
 		printf("\nEthernet Header\n");
 		printf("\t|-Source Address : %.2X-%.2X-%.2X-%.2X-%.2X-%.2X\n",eth->h_source[0],eth->h_source[1],eth->h_source[2],eth->h_source[3],eth->h_source[4],eth->h_source[5]);
+		snprintf(source_addr, 18, "%.2X:%.2X:%.2X:%.2X:%.2X:%.2X", eth->h_source[0],eth->h_source[1],eth->h_source[2],eth->h_source[3],eth->h_source[4],eth->h_source[5]);
 		printf("\t|-Destination Address : %.2X-%.2X-%.2X-%.2X-%.2X-%.2X\n",eth->h_dest[0],eth->h_dest[1],eth->h_dest[2],eth->h_dest[3],eth->h_dest[4],eth->h_dest[5]);
+		snprintf(destination_addr, 18, "%.2X:%.2X:%.2X:%.2X:%.2X:%.2X", eth->h_dest[0],eth->h_dest[1],eth->h_dest[2],eth->h_dest[3],eth->h_dest[4],eth->h_dest[5]);
+		
+		cJSON *fmt = NULL;
+		cJSON_AddItemToObject(root, "eth", fmt = cJSON_CreateObject());
+		cJSON_AddItemToObject(fmt, "src", cJSON_CreateString(source_addr));
+		cJSON_AddItemToObject(fmt, "dst", cJSON_CreateString(destination_addr));
 		
 		if(eth->h_proto == 0x0608)
 		{
@@ -168,6 +257,12 @@ int main(){
 			}
 			
 		}
-		printf("###############################################");
+		printf("###############################################\n");
+		if (print_preallocated(root) != 0) {
+			cJSON_Delete(fmt);
+			cJSON_Delete(root);
+			exit(EXIT_FAILURE);
+		}
+		cJSON_Delete(root);
 	}
 }

@@ -15,10 +15,6 @@
 #include <unistd.h>
 
 #include <iostream>
-#include <mutex>
-#include <thread>
-#include <typeinfo>
-#include <vector>
 
 #include "../include/elasticsearch/elasticsearch.h"
 #include "utils.h"
@@ -26,7 +22,6 @@
 
 #define BUFSIZE 65536
 
-std::mutex m;
 Elasticsearch es{};
 BulkBody bb;
 
@@ -249,22 +244,9 @@ int main(int argc, char *argv[])
     sock_r = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
     if(sock_r < 0)
     {
-        printf("error in socket()\n");
+        perror("error in socket()\n");
         return -1;
     }
-
-    // struct ifreq ifr;
-    // memset(&ifr, 0, sizeof(ifr));
-    // snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", argv[1]);
-    // if(ioctl(sock_r, SIOCGIFINDEX, &ifr) < 0)
-    // {
-    //     perror("ioctl() failed to find interface");
-    //     return -1;
-    // }
-    // if (setsockopt(sock_r, SOL_SOCKET, SO_BINDTODEVICE, (void *)&ifr, sizeof(ifr)) < 0) {
-    //     perror("Unable to bind to device.");
-    //     return -1;
-    // }
 
     unsigned char *buffer = (unsigned char *) malloc(BUFSIZE);
     while(true)
@@ -274,7 +256,7 @@ int main(int argc, char *argv[])
         buflen = recvfrom(sock_r, buffer, BUFSIZE, 0, NULL, NULL);
         if(buflen < 0)
         {
-            fprintf(stderr, "error in recvfrom()\n");
+            perror("error in recvfrom()\n");
             continue;
         }
 

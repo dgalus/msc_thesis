@@ -42,8 +42,11 @@ public:
     BulkBody();
     BulkBody& Add(BulkOperation bulkOperation, std::string&& jsonBody, std::string jsonSource);
     std::string Get();
+    void Clear();
+    uint32_t Count();
 private:
     std::string bulkString;
+    uint32_t counter;
 };
 
 

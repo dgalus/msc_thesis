@@ -1,320 +1,291 @@
+#include <arpa/inet.h>
+#include <linux/if_packet.h>
+#include <linux/ip.h>
+#include <linux/udp.h>
+#include <linux/tcp.h>
+#include <linux/icmp.h>
+#include <net/if.h>
+#include <netinet/ether.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <time.h>
+#include <unistd.h>
+
 #include <iostream>
 #include <mutex>
-#include <vector>
 #include <thread>
-#include <tins/tins.h>
-#include <time.h>
+#include <typeinfo>
+#include <vector>
 
 #include "../include/elasticsearch/elasticsearch.h"
+#include "utils.h"
+#include "arphdr.h"
 
+#define BUFSIZE 65536
 
-std::vector<Tins::Packet> vt;
-Elasticsearch es{};
 std::mutex m;
+Elasticsearch es{};
+BulkBody bb;
 
-std::string getCurrentDateTime()
+std::string save()
 {
-	time_t     now = time(0);
-    struct tm  tstruct;
-    char       buf[80];
-    tstruct = *localtime(&now);
-    strftime(buf, sizeof(buf), "%Y-%m-%d.%X", &tstruct);
-    return std::string(buf);
+    return es.bulk(bb.Get()).GetRawData();
 }
 
-void save()
+void processFrame(unsigned char *buffer)
 {
-	BulkBody bb;
-	std::lock_guard<std::mutex> lock(m);
+    struct ethhdr *eth = (struct ethhdr *)(buffer);
+    char source_addr[18];
+    char destination_addr[18];
+    snprintf(source_addr, 18, "%.2X:%.2X:%.2X:%.2X:%.2X:%.2X", eth->h_source[0], eth->h_source[1], eth->h_source[2], eth->h_source[3], eth->h_source[4], eth->h_source[5]);
+    snprintf(destination_addr, 18, "%.2X:%.2X:%.2X:%.2X:%.2X:%.2X", eth->h_dest[0], eth->h_dest[1], eth->h_dest[2], eth->h_dest[3], eth->h_dest[4], eth->h_dest[5]);
+    std::string source = std::string(source_addr);
+    std::string destination = std::string(destination_addr);
 
-	for(auto p : vt)
-	{
-		rapidjson::Document d;
-		d.SetObject();
-		rapidjson::Document::AllocatorType& allocator = d.GetAllocator();
-		
-		if(p.pdu()->find_pdu<Tins::EthernetII>())
-		{
-			rapidjson::Value ethernet(rapidjson::kObjectType);
-			
-			std::string dst_addr = p.pdu()->rfind_pdu<Tins::EthernetII>().dst_addr().to_string();
-			rapidjson::Value dst_addr_val;
-			dst_addr_val.SetString(dst_addr.c_str(), dst_addr.length(), allocator);
-			ethernet.AddMember("dst_addr", dst_addr_val, allocator);
-			
-			std::string src_addr = p.pdu()->rfind_pdu<Tins::EthernetII>().src_addr().to_string();
-			rapidjson::Value src_addr_val;
-			src_addr_val.SetString(src_addr.c_str(), src_addr.length(), allocator);
-			ethernet.AddMember("src_addr", src_addr_val, allocator);
-			
-			d.AddMember("ethernet", ethernet, allocator);
+    if(source == "00:00:00:00:00:00" && destination == "00:00:00:00:00:00")
+        return;
 
-			if(p.pdu()->find_pdu<Tins::IP>())
-			{
-				rapidjson::Value ip(rapidjson::kObjectType);
-				
-				int version = p.pdu()->rfind_pdu<Tins::IP>().version();
-				rapidjson::Value version_val;
-				version_val.SetInt(version);
-				ip.AddMember("version", version_val, allocator);
-				
-				int tot_len = p.pdu()->rfind_pdu<Tins::IP>().tot_len();
-				rapidjson::Value tot_len_val;
-				tot_len_val.SetInt(tot_len);
-				ip.AddMember("tot_len", tot_len_val, allocator);
-				
-				Tins::IP::Flags flags = p.pdu()->rfind_pdu<Tins::IP>().flags();
-				rapidjson::Value flags_val;
-				if(flags == Tins::IP::Flags::FLAG_RESERVED)
-					flags_val.SetString("reserved");
-				else if(flags == Tins::IP::Flags::DONT_FRAGMENT)
-					flags_val.SetString("dont_fragment");
-				else if(flags == Tins::IP::Flags::MORE_FRAGMENTS)
-					flags_val.SetString("more_fragments");
-				else
-					flags_val.SetString("");
-				ip.AddMember("flags", flags_val, allocator);
-				
-				int ttl = p.pdu()->rfind_pdu<Tins::IP>().ttl();
-				rapidjson::Value ttl_val;
-				ttl_val.SetInt(ttl);
-				ip.AddMember("ttl", ttl_val, allocator);
-				
-				int protocol = p.pdu()->rfind_pdu<Tins::IP>().protocol();
-				rapidjson::Value protocol_val;
-				protocol_val.SetInt(protocol);
-				ip.AddMember("protocol", protocol_val, allocator);
-				
-				std::string dst_addr = p.pdu()->rfind_pdu<Tins::IP>().dst_addr().to_string();
-				rapidjson::Value dst_addr_val;
-				dst_addr_val.SetString(dst_addr.c_str(), dst_addr.length(), allocator);
-				ip.AddMember("dst_addr", dst_addr_val, allocator);
-				
-				std::string src_addr = p.pdu()->rfind_pdu<Tins::IP>().src_addr().to_string();
-				rapidjson::Value src_addr_val;
-				src_addr_val.SetString(src_addr.c_str(), src_addr.length(), allocator);
-				ip.AddMember("src_addr", src_addr_val, allocator);
-				
-				d.AddMember("ip", ip, allocator);
+    rapidjson::Document d;
+    d.SetObject();
+    rapidjson::Document::AllocatorType& allocator = d.GetAllocator();
 
-				if(p.pdu()->find_pdu<Tins::TCP>())
-				{
-					rapidjson::Value tcp(rapidjson::kObjectType);
+    rapidjson::Value ethernet(rapidjson::kObjectType);
+    
+    rapidjson::Value src_addr_val;
+    src_addr_val.SetString(source.c_str(), source.length(), allocator);
+    ethernet.AddMember("src", src_addr_val, allocator);
 
-					int sport = p.pdu()->rfind_pdu<Tins::TCP>().sport();
-					rapidjson::Value sport_val;
-					sport_val.SetInt(sport);
-					tcp.AddMember("sport", sport_val, allocator);
-					
-					int dport = p.pdu()->rfind_pdu<Tins::TCP>().dport();
-					rapidjson::Value dport_val;
-					dport_val.SetInt(dport);
-					tcp.AddMember("dport", dport_val, allocator);
-					
-					unsigned int seq = p.pdu()->rfind_pdu<Tins::TCP>().seq();
-					rapidjson::Value seq_val;
-					seq_val.SetUint(seq);
-					tcp.AddMember("seq", seq_val, allocator);
-					
-					unsigned int seq_ack = p.pdu()->rfind_pdu<Tins::TCP>().ack_seq();
-					rapidjson::Value seq_ack_val;
-					seq_ack_val.SetUint(seq_ack);
-					tcp.AddMember("seq_ack", seq_ack_val, allocator);
-					
-					int flags = p.pdu()->rfind_pdu<Tins::TCP>().flags();
-					rapidjson::Value flags_val;
-					flags_val.SetInt(flags);
-					tcp.AddMember("flags", flags_val, allocator);
-					
-					d.AddMember("tcp", tcp, allocator);
-				}
-				else if(p.pdu()->find_pdu<Tins::UDP>())
-				{
-					rapidjson::Value udp(rapidjson::kObjectType);
-					
-					int dport = p.pdu()->rfind_pdu<Tins::UDP>().dport();
-					rapidjson::Value dport_val;
-					dport_val.SetInt(dport);
-					udp.AddMember("dport", dport_val, allocator);
-					
-					int sport = p.pdu()->rfind_pdu<Tins::UDP>().sport();
-					rapidjson::Value sport_val;
-					sport_val.SetInt(sport);
-					udp.AddMember("sport", sport_val, allocator);
-					
-					if(p.pdu()->find_pdu<Tins::DHCP>())
-					{
-						rapidjson::Value dhcp(rapidjson::kObjectType);
+    rapidjson::Value dest_addr_val;
+    dest_addr_val.SetString(destination.c_str(), destination.length(), allocator);
+    ethernet.AddMember("dest", dest_addr_val, allocator);
 
-						std::vector<Tins::IPv4Address> dns_tins = p.pdu()->rfind_pdu<Tins::DHCP>().domain_name_servers(); 
-						rapidjson::Value dns_val(rapidjson::kArrayType);
-						for(auto d : dns_tins)
-						{
-							dns_val.PushBack(
-								rapidjson::Value{}.SetString(
-									d.to_string().c_str(), d.to_string().length(), allocator), 
-								allocator
-							);
-						}
-						dhcp.AddMember("dns", dns_val, allocator);
+    d.AddMember("ethernet", ethernet, allocator);
 
-						std::vector<Tins::IPv4Address> routers = p.pdu()->rfind_pdu<Tins::DHCP>().routers();
-						rapidjson::Value routers_val(rapidjson::kArrayType);
-						for(auto r : routers)
-						{
-							routers_val.PushBack(
-								rapidjson::Value{}.SetString(
-									r.to_string().c_str(), r.to_string().length(), allocator),
-								allocator
-							);
-						}
-						dhcp.AddMember("routers", routers_val, allocator);
+    if(eth->h_proto == 0x0608)
+    {
+        struct arphdr_t *arph = (struct arphdr_t *)(buffer + sizeof(struct ethhdr));
+        if(ntohs(arph->htype) == 1 && ntohs(arph->ptype) == 0x0800)
+        {
+            rapidjson::Value arp(rapidjson::kObjectType);
 
-						std::string ip = p.pdu()->rfind_pdu<Tins::DHCP>().requested_ip().to_string();
-						rapidjson::Value ip_val;
-						ip_val.SetString(ip.c_str(), ip.length(), allocator);
-						dhcp.AddMember("ip", ip_val, allocator);
+            char sender_mac[18];
+            char target_mac[18];
+            char sender_ip[16];
+            char target_ip[16];
+            snprintf(sender_mac, 18, "%.2X:%.2X:%.2X:%.2X:%.2X:%.2X", arph->sha[0], arph->sha[1], arph->sha[2], arph->sha[3], arph->sha[4], arph->sha[5]);
+            snprintf(target_mac, 18, "%.2X:%.2X:%.2X:%.2X:%.2X:%.2X", arph->tha[0], arph->tha[1], arph->tha[2], arph->tha[3], arph->tha[4], arph->tha[5]);
+            snprintf(sender_ip, 16, "%d.%d.%d.%d", arph->spa[0], arph->spa[1], arph->spa[2], arph->spa[3]);
+            snprintf(target_ip, 16, "%d.%d.%d.%d", arph->tpa[0], arph->tpa[1], arph->tpa[2], arph->tpa[3]);
 
-						std::string mask = p.pdu()->rfind_pdu<Tins::DHCP>().subnet_mask().to_string();
-						rapidjson::Value mask_val;
-						mask_val.SetString(mask.c_str(), mask.length(), allocator);
-						dhcp.AddMember("mask", mask_val, allocator);
+            rapidjson::Value sender_hw_val;
+            sender_hw_val.SetString(std::string(sender_mac).c_str(), std::string(sender_mac).length(), allocator);
+            arp.AddMember("sender_hw", sender_hw_val, allocator);
+            
+            rapidjson::Value target_hw_val;
+            target_hw_val.SetString(std::string(target_mac).c_str(), std::string(target_mac).length(), allocator);
+            arp.AddMember("target_hw", target_hw_val, allocator);
 
-						d.AddMember("dhcp", dhcp, allocator);
-					}
+            rapidjson::Value sender_ip_val;
+            sender_ip_val.SetString(std::string(sender_ip).c_str(), std::string(sender_ip).length(), allocator);
+            arp.AddMember("sender_ip", sender_ip_val, allocator);
 
-					d.AddMember("udp", udp, allocator);
-				}
-				else if(p.pdu()->find_pdu<Tins::ICMP>())
-				{
-					rapidjson::Value icmp(rapidjson::kObjectType);
-					
-					Tins::ICMP::Flags flags = p.pdu()->rfind_pdu<Tins::ICMP>().type();
-					rapidjson::Value flags_val;
-					if(flags == Tins::ICMP::Flags::ADDRESS_MASK_REPLY)
-						flags_val.SetString("address_mask_reply");
-					else if(flags == Tins::ICMP::Flags::ADDRESS_MASK_REQUEST)
-						flags_val.SetString("address_mask_request");
-					else if(flags == Tins::ICMP::Flags::DEST_UNREACHABLE)
-						flags_val.SetString("dest_unreachable");
-					else if(flags == Tins::ICMP::Flags::ECHO_REPLY)
-						flags_val.SetString("echo_reply");
-					else if(flags == Tins::ICMP::Flags::ECHO_REQUEST)
-						flags_val.SetString("echo_request");
-					else if(flags == Tins::ICMP::Flags::INFO_REPLY)
-						flags_val.SetString("info_reply");
-					else if(flags == Tins::ICMP::Flags::INFO_REQUEST)
-						flags_val.SetString("echo_request");
-					else if(flags == Tins::ICMP::Flags::PARAM_PROBLEM)
-						flags_val.SetString("param_problem");
-					else if(flags == Tins::ICMP::Flags::REDIRECT)
-						flags_val.SetString("redirect");
-					else if(flags == Tins::ICMP::Flags::SOURCE_QUENCH)
-						flags_val.SetString("source_quench");
-					else if(flags == Tins::ICMP::Flags::TIME_EXCEEDED)
-						flags_val.SetString("time_exceeded");
-					else if(flags == Tins::ICMP::Flags::TIMESTAMP_REPLY)
-						flags_val.SetString("timestamp_reply");
-					else if(flags == Tins::ICMP::Flags::TIMESTAMP_REQUEST)
-						flags_val.SetString("timestamp_request");
-					else
-						flags_val.SetString("");
-					icmp.AddMember("flags", flags_val, allocator);
-					
-					int code = p.pdu()->rfind_pdu<Tins::ICMP>().code();
-					rapidjson::Value code_val;
-					code_val.SetInt(code);
-					icmp.AddMember("code", code_val, allocator);
-					
-					int sequence = p.pdu()->rfind_pdu<Tins::ICMP>().sequence();
-					rapidjson::Value sequence_val;
-					sequence_val.SetInt(sequence);
-					icmp.AddMember("sequence", sequence_val, allocator);
-					
-					d.AddMember("icmp", icmp, allocator);
-				}
-				else
-				{ }
-			}
-			int size = p.pdu()->size();
-			rapidjson::Value size_val;
-			size_val.SetInt(size);
-			d.AddMember("size", size_val, allocator);
-			
-			// TIMESTAMP
-			std::string datetime = getCurrentDateTime();
-			rapidjson::Value datetime_val;
-			datetime_val.SetString(datetime.c_str(), datetime.length(), allocator);
-			d.AddMember("datetime", datetime_val, allocator);
-		}
+            rapidjson::Value target_ip_val;
+            target_ip_val.SetString(std::string(target_ip).c_str(), std::string(target_ip).length(), allocator);
+            arp.AddMember("target_ip", target_ip_val, allocator);
 
-		if(p.pdu()->find_pdu<Tins::ARP>())
-		{
-			rapidjson::Value arp(rapidjson::kObjectType);
+            rapidjson::Value hw_type_val;
+            hw_type_val.SetInt(ntohs(arph->htype));
+            arp.AddMember("hw_type", hw_type_val, allocator);
 
-			std::string sender_hw_addr = p.pdu()->rfind_pdu<Tins::ARP>().sender_hw_addr().to_string();
-			rapidjson::Value sender_hw_addr_val;
-			sender_hw_addr_val.SetString(sender_hw_addr.c_str(), sender_hw_addr.length(), allocator);
-			arp.AddMember("sender_hw_addr", sender_hw_addr_val, allocator);
+            rapidjson::Value proto_type_val;
+            proto_type_val.SetInt(ntohs(arph->ptype));
+            arp.AddMember("proto_type", proto_type_val, allocator);
 
-			std::string target_hw_addr = p.pdu()->rfind_pdu<Tins::ARP>().target_hw_addr().to_string();
-			rapidjson::Value target_hw_addr_val;
-			target_hw_addr_val.SetString(target_hw_addr.c_str(), target_hw_addr.length(), allocator);
-			arp.AddMember("target_hw_addr", target_hw_addr_val, allocator);
+            rapidjson::Value operation_val;
+            operation_val.SetInt(ntohs(arph->oper));
+            arp.AddMember("operation", operation_val, allocator);
 
-			std::string sender_ip_addr = p.pdu()->rfind_pdu<Tins::ARP>().sender_ip_addr().to_string();
-			rapidjson::Value sender_ip_addr_val;
-			sender_ip_addr_val.SetString(sender_ip_addr.c_str(), sender_ip_addr.length(), allocator);
-			arp.AddMember("sender_ip_addr", sender_ip_addr_val, allocator);
+            d.AddMember("arp", arp, allocator);
+        }
+    }
+    else if(eth->h_proto == 0x0008)
+    {
+        unsigned short iphdrlen;
+        struct sockaddr_in source_addr;
+        struct sockaddr_in destination_addr;
 
-			std::string target_ip_addr = p.pdu()->rfind_pdu<Tins::ARP>().target_ip_addr().to_string();
-			rapidjson::Value target_ip_addr_val;
-			target_ip_addr_val.SetString(target_ip_addr.c_str(), target_ip_addr.length(), allocator);
-			arp.AddMember("target_ip_addr", target_ip_addr_val, allocator);
+        struct iphdr *iph = (struct iphdr*) (buffer + sizeof(struct ethhdr));
+        iphdrlen =iph->ihl*4;
+            
+        memset(&source_addr, 0, sizeof(source_addr));
+        source_addr.sin_addr.s_addr = iph->saddr;
+            
+        memset(&destination_addr, 0, sizeof(destination_addr));
+        destination_addr.sin_addr.s_addr = iph->daddr;
 
-			d.AddMember("arp", arp, allocator);
+        rapidjson::Value ip(rapidjson::kObjectType);
 
-			std::string datetime = getCurrentDateTime();
-			rapidjson::Value datetime_val;
-			datetime_val.SetString(datetime.c_str(), datetime.length(), allocator);
-			d.AddMember("datetime", datetime_val, allocator);
-		}
-		
-		// DEBUG
-		rapidjson::StringBuffer buffer;
-		rapidjson::Writer<rapidjson::StringBuffer, rapidjson::Document::EncodingType, rapidjson::UTF8<>> writer(buffer);
-		d.Accept(writer);
-		//std::cout << buffer.GetString() << std::endl;
-		
-		bb.Add(BulkOperation::Index, "{ \"_index\" : \"sniffer\", \"_type\" : \"frame\"}", buffer.GetString());
-	}
-	std::cout << es.bulk(bb.Get()).GetRawData();
-	vt.clear();
+        rapidjson::Value version_val;
+        version_val.SetUint((unsigned int) iph->version);
+        ip.AddMember("version", version_val, allocator);
+
+        rapidjson::Value ttl_val;
+        ttl_val.SetUint((unsigned int) iph->ttl);
+        ip.AddMember("ttl", ttl_val, allocator);
+
+        rapidjson::Value proto_val;
+        proto_val.SetUint((unsigned int) iph->protocol);
+        ip.AddMember("protocol", proto_val, allocator);
+
+        std::string source_ip = std::string(inet_ntoa(source_addr.sin_addr));
+        rapidjson::Value source_ip_val;
+        source_ip_val.SetString(source_ip.c_str(), source_ip.length(), allocator);
+        ip.AddMember("src", source_ip_val, allocator);
+    
+        std::string destination_ip = std::string(inet_ntoa(destination_addr.sin_addr));
+        rapidjson::Value destination_ip_val;
+        destination_ip_val.SetString(destination_ip.c_str(), destination_ip.length(), allocator);
+        ip.AddMember("dest", destination_ip_val, allocator);
+
+        d.AddMember("ip", ip, allocator);
+
+        if(iph->protocol == 1)
+        {
+            struct icmphdr *icmph = (struct icmphdr *)(buffer + iphdrlen + sizeof(struct ethhdr));
+
+            rapidjson::Value icmp(rapidjson::kObjectType);
+
+            rapidjson::Value type_val;
+            type_val.SetUint((unsigned int) icmph->type);
+            icmp.AddMember("type", type_val, allocator);
+
+            d.AddMember("icmp", icmp, allocator);
+        }
+        else if(iph->protocol == 6)
+        {
+            struct tcphdr *tcph = (struct tcphdr*) (buffer + iphdrlen + sizeof(struct ethhdr));
+
+            rapidjson::Value tcp(rapidjson::kObjectType);
+
+            rapidjson::Value src_port_val;
+            src_port_val.SetUint(ntohs(tcph->source));
+            tcp.AddMember("src_port", src_port_val, allocator);
+
+            rapidjson::Value dest_port_val;
+            dest_port_val.SetUint(ntohs(tcph->dest));
+            tcp.AddMember("dest_port", dest_port_val, allocator);
+
+            rapidjson::Value seq_val;
+            seq_val.SetUint(ntohs(tcph->seq));
+            tcp.AddMember("seq", seq_val, allocator);
+
+            rapidjson::Value ack_seq_val;
+            ack_seq_val.SetUint(ntohs(tcph->ack_seq));
+            tcp.AddMember("ack_seq", ack_seq_val, allocator);
+
+            rapidjson::Value urg_flag_val;
+            urg_flag_val.SetBool((tcph->urg != 0));
+            tcp.AddMember("urg", urg_flag_val, allocator);
+
+            rapidjson::Value ack_flag_val;
+            ack_flag_val.SetBool((tcph->ack != 0));
+            tcp.AddMember("ack", ack_flag_val, allocator);
+
+            rapidjson::Value psh_flag_val;
+            psh_flag_val.SetBool((tcph->psh != 0));
+            tcp.AddMember("psh", psh_flag_val, allocator);
+
+            rapidjson::Value rst_flag_val;
+            rst_flag_val.SetBool((tcph->rst != 0));
+            tcp.AddMember("rst", rst_flag_val, allocator);            
+
+            rapidjson::Value syn_flag_val;
+            syn_flag_val.SetBool((tcph->syn != 0));
+            tcp.AddMember("syn", syn_flag_val, allocator);  
+
+            rapidjson::Value fin_flag_val;
+            fin_flag_val.SetBool((tcph->fin != 0));
+            tcp.AddMember("fin", fin_flag_val, allocator);  
+
+            d.AddMember("tcp", tcp, allocator);
+        }
+        else if(iph->protocol == 17)
+        {
+            struct udphdr *udph = (struct udphdr*) (buffer + iphdrlen + sizeof(struct ethhdr));
+
+            rapidjson::Value udp(rapidjson::kObjectType);
+
+            rapidjson::Value src_port_val;
+            src_port_val.SetUint(ntohs(udph->source));
+            udp.AddMember("src_port", src_port_val, allocator);
+
+            rapidjson::Value dest_port_val;
+            dest_port_val.SetUint(ntohs(udph->dest));
+            udp.AddMember("dest_port", dest_port_val, allocator);
+
+            d.AddMember("udp", udp, allocator);
+        }
+    }
+    std::string datetime = getCurrentDateTime();
+	rapidjson::Value datetime_val;
+	datetime_val.SetString(datetime.c_str(), datetime.length(), allocator);
+	d.AddMember("datetime", datetime_val, allocator);
+
+    rapidjson::StringBuffer strbuffer;
+	rapidjson::Writer<rapidjson::StringBuffer, rapidjson::Document::EncodingType, rapidjson::UTF8<>> writer(strbuffer);
+	d.Accept(writer);
+
+    bb.Add(BulkOperation::Index, "{ \"_index\" : \"sniffer\", \"_type\" : \"frame\"}", strbuffer.GetString());
 }
 
-bool doo(Tins::Packet& packet)
+int main(int argc, char *argv[])
 {
-	vt.push_back(packet);
-	if(vt.size() == 200)
-	{
-		save();
-	}
-	return true;
-}
+    int sock_r;
+    int buflen;
 
-int main(int argc, char **argv)
-{
+    sock_r = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+    if(sock_r < 0)
+    {
+        printf("error in socket()\n");
+        return -1;
+    }
 
-	Tins::Sniffer sniffer("eno1");
-	sniffer.sniff_loop(doo);
-	
-	//JsonResponse jr = es.search("unsafe", "url", "");
-	//std::cout << jr.GetStatusCode() << std::endl;
-	//std::cout << jr.GetRawData() << std::endl;
-	//rapidjson::StringBuffer buffer;
-	//rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-	//jr.GetJsonData().Accept(writer);
-	//std::cout << buffer.GetString() << std::endl;
+    // struct ifreq ifr;
+    // memset(&ifr, 0, sizeof(ifr));
+    // snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", argv[1]);
+    // if(ioctl(sock_r, SIOCGIFINDEX, &ifr) < 0)
+    // {
+    //     perror("ioctl() failed to find interface");
+    //     return -1;
+    // }
+    // if (setsockopt(sock_r, SOL_SOCKET, SO_BINDTODEVICE, (void *)&ifr, sizeof(ifr)) < 0) {
+    //     perror("Unable to bind to device.");
+    //     return -1;
+    // }
 
+    unsigned char *buffer = (unsigned char *) malloc(BUFSIZE);
+    while(true)
+    {
+        memset(buffer, 0, BUFSIZE);
+
+        buflen = recvfrom(sock_r, buffer, BUFSIZE, 0, NULL, NULL);
+        if(buflen < 0)
+        {
+            fprintf(stderr, "error in recvfrom()\n");
+            continue;
+        }
+
+        processFrame(buffer);
+
+        if(bb.Count() > 20)
+        {
+            std::cerr << save() << std::endl;
+            bb.Clear();
+        }
+    }
+    free(buffer);
     return 0;
 }

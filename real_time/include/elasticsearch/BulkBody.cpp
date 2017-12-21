@@ -4,6 +4,7 @@
 BulkBody::BulkBody()
 {
     this->bulkString = "";
+    this->counter = 0;
 }
 
 BulkBody& BulkBody::Add(BulkOperation bulkOperation, std::string &&jsonBody, std::string jsonSource) {
@@ -51,10 +52,22 @@ BulkBody& BulkBody::Add(BulkOperation bulkOperation, std::string &&jsonBody, std
         default:
             break;
     }
+    counter++;
     return *this;
 }
 
-std::string BulkBody::Get() {
-
+std::string BulkBody::Get() 
+{
     return this->bulkString;
+}
+
+void BulkBody::Clear()
+{
+    this->bulkString = "";
+    counter = 0;
+}
+
+uint32_t BulkBody::Count()
+{
+    return this->counter;
 }

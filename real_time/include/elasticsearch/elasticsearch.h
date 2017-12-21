@@ -35,7 +35,7 @@ private:
     int _status;
     std::string _body;
 public:
-    ElasticsearchResponseException(const int status_code, const std::string error) : std::exception()
+    ElasticsearchResponseException(const int status_code, const std::string& error) : std::exception()
     {
         _status = status_code;
         _body = error;

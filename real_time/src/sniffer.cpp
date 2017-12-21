@@ -241,7 +241,7 @@ int main(int argc, char *argv[])
     int sock_r;
     int buflen;
 
-    sock_r = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+    sock_r = socket(AF_INET, SOCK_RAW, htons(ETH_P_ALL));
     if(sock_r < 0)
     {
         perror("error in socket()\n");

@@ -280,7 +280,7 @@ int main(int argc, char *argv[])
 
         processFrame(buffer);
 
-        if(bb.Count() > 20)
+        if(bb.Count() > 5000)
         {
             std::cerr << save() << std::endl;
             bb.Clear();

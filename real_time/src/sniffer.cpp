@@ -241,10 +241,41 @@ int main(int argc, char *argv[])
     int sock_r;
     int buflen;
 
-    sock_r = socket(AF_INET, SOCK_RAW, htons(ETH_P_ALL));
+    sock_r = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
     if(sock_r < 0)
     {
         perror("error in socket()\n");
+        return -1;
+    }
+
+    struct ifreq ifr;
+    struct sockaddr_ll ll;
+    memset(&ifr, 0, sizeof(ifr));
+    strncpy(ifr.ifr_name, argv[1], sizeof(ifr.ifr_name));
+    if(ioctl(sock_r, SIOCGIFINDEX, &ifr) < 0)
+    {
+        perror("ioctl[SIOCGIFINDEX]");
+        close(sock_r);
+        return -1;
+    }
+    memset(&ll, 0, sizeof(ll));
+    ll.sll_family = AF_PACKET;
+    ll.sll_ifindex = ifr.ifr_ifindex;
+    ll.sll_protocol = htons(ETH_P_ALL);
+    if(bind(sock_r, (struct sockaddr *) &ll, sizeof(ll)) < 0)
+    {
+        perror("bind[AF_PACKET]");
+        close(sock_r);
+        return -1;
+    }
+    struct packet_mreq mr;
+    memset(&mr, 0, sizeof(mr));
+    mr.mr_ifindex = ll.sll_ifindex;
+    mr.mr_type = PACKET_MR_PROMISC;
+    if(setsockopt(sock_r, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mr, sizeof(mr)) < 0)
+    {
+        perror("setsockopt[PACKET_MR_PROMISC]");
+        close(sock_r);
         return -1;
     }
 
@@ -262,7 +293,7 @@ int main(int argc, char *argv[])
 
         processFrame(buffer);
 
-        if(bb.Count() > 5000)
+        if(bb.Count() > 200)
         {
             std::cerr << save() << std::endl;
             bb.Clear();
